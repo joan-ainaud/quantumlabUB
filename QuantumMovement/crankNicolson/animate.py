@@ -284,6 +284,7 @@ class QuantumAnimation:  # inches
         self.lineN = None
 
         self.drawnPos = None
+        self.drawnMom = None
         self.drawnParticle = None
         self.drawnParticleMom = None
 
@@ -456,6 +457,7 @@ class QuantumAnimation:  # inches
             self.drawnParticle = None
             self.drawnParticleMom = None
             self.drawnPos = None
+            self.drawnMom = None
 
 
         if self.drawnParticle is not None: self.drawnParticle.remove()
@@ -469,19 +471,27 @@ class QuantumAnimation:  # inches
 
             if self.showMomentum:
                 self.drawnParticleMom = plt.Arrow(0.,0., self.particle.px, self.particle.py,
-                                                color='brown', alpha=0.5)
+                                                color='white', alpha=0.5)
                 #(self.QSystem.Px[-1] - self.QSystem.Px[0]) / 100.
                 self.axMomentum.add_patch(self.drawnParticleMom)
 
         else: self.drawnParticle = None; self.drawnParticleMom = None
 
         if self.drawnPos is not None: self.drawnPos.remove()
+        if self.drawnMom is not None and self.showMomentum: self.drawnMom.remove()
         if self.drawExpected:
             self.drawnPos = plt.Circle((self.QSystem.expectedX(), self.QSystem.expectedY()),
                                     (self.QSystem.xf - self.QSystem.x0) / 150.,
                                     color='orange', alpha=0.5)
             self.axPsi.add_patch(self.drawnPos)
-        else: self.drawnPos = None
+
+            if self.showMomentum:
+                self.drawnMom = plt.Arrow(0.,0., self.QSystem.expectedPx(), self.QSystem.expectedPy(),
+                                                color='brown', alpha=0.5)
+
+                self.axMomentum.add_patch(self.drawnMom)
+
+        else: self.drawnPos = None; self.drawnMom = None
 
         if self.extraUpdatesStart and self.extraUpdates is not None:
             for action in self.extraUpdates:
@@ -690,18 +700,38 @@ class QuantumAnimation:  # inches
             self.datMom.set_data(self.QSystem.psiMod.T)
             changes.append(self.datMom)
 
+            # Draw expected and classical momentum as arrows.
+            # But if they are very close to 0, the drawing of the arrow turns out
+            # ugly, so instead for P ~ 0, a circle at 0 is drawn instead of an arrow.
             if self.drawClassical and not self.imagdt:
                 self.drawnParticleMom.remove()
                 # No funciona? Versió més moderna potser només de matplotlib # self.drawnParticleMom.set_data(dx=self.particle.px, dy=self.particle.py)
 
 
                 if abs(self.particle.px) > (self.QSystem.Px[1]-self.QSystem.Px[0]) / 4 or abs(self.particle.py) > (self.QSystem.Py[1] - self.QSystem.Py[0]) / 4:
-                    self.drawnParticleMom = plt.Arrow(0., 0., self.particle.px, self.particle.py, color='brown', alpha=0.5)
+                    self.drawnParticleMom = plt.Arrow(0., 0., self.particle.px, self.particle.py, color='white', alpha=0.5)
                 else:
                     self.drawnParticleMom = plt.Circle((0,0), radius=min((self.QSystem.Px[1] - self.QSystem.Px[0])/4,
-                                                                         (self.QSystem.Py[1] - self.QSystem.Py[0])/4), color='brown')
+                                                                         (self.QSystem.Py[1] - self.QSystem.Py[0])/4), color='white')
                 self.axMomentum.add_patch(self.drawnParticleMom)
                 changes.append(self.drawnParticleMom)
+
+            if self.drawExpected and not self.imagdt:
+                self.drawnMom.remove()
+
+                expPx = self.QSystem.expectedPx()
+                expPy = self.QSystem.expectedPy()
+
+                if abs(expPx) > (self.QSystem.Px[1] - self.QSystem.Px[0]) / 4 or abs(expPy) > (
+                        self.QSystem.Py[1] - self.QSystem.Py[0]) / 4:
+                    self.drawnMom = plt.Arrow(0., 0., expPx, expPy, color='brown',
+                                                      alpha=0.5)
+                else:
+                    self.drawnMom = plt.Circle((0, 0), radius=min((self.QSystem.Px[1] - self.QSystem.Px[0]) / 4,
+                                                                          (self.QSystem.Py[1] - self.QSystem.Py[
+                                                                              0]) / 4), color='brown')
+                self.axMomentum.add_patch(self.drawnMom)
+                changes.append(self.drawnMom)
 
 
         if self.extraUpdates != None:

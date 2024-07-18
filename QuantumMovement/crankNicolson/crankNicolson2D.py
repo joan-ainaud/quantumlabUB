@@ -1231,15 +1231,15 @@ def yVarFunc(x, y, t, extra_param=np.array([])):
 def gaussian00(x,y,t=0., extra_param=np.array([])):
     return np.exp(-(x*x + y*y)/2) / np.sqrt(2*np.pi)
 
-def gaussianPacket(x, x0, sigma, p0, extra_param=np.array([])):
+def gaussianPacket(x, sigma, p0, extra_param=np.array([])):
     global hred
-    return 1./(2*np.pi*sigma**2)**(0.25) * np.exp(-1./4. * ((x-x0)/sigma)**2) * np.exp(1j/hred * p0*(x))#-x0/2)) # Apunts mec quantica
+    return 1./(2*np.pi*sigma**2)**(0.25) * np.exp(-1./4. * ((x)/sigma)**2) * np.exp(1j/hred * p0*(x))#-x0/2)) # Apunts mec quantica
 
 
 # GENERATOR FOR GAUSSIAN INITIAL STATES
 def gaussian2D(x0, sigmax, px, y0, sigmay, py):
     def result(x, y, t=0., extra_param=np.array([])):
-        return gaussianPacket(x, x0, sigmax, px) * gaussianPacket(y, y0, sigmay, py)
+        return gaussianPacket(x- x0, sigmax, px) * gaussianPacket(y- y0, sigmay, py)
     return result
 
 

@@ -16,6 +16,47 @@
 #        Ellipse:
 #            pos: self.pos
 #            size: self.size
+
+<RoundedButton>:
+    #Prevents the disabled button text from disappearing
+    background_disabled_normal: ''
+    #disabled_color: 1,1,1,1
+
+    background_color: 0,0,0,0# the last zero is the critical on, make invisible
+    canvas.before:
+        Color:
+            rgba: (0.4,0.4,0.4,1) if self.state=='normal' else (0,0.7,0.7,1)# visual feedback of press
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [25,]
+#        Color:
+ #           rgba: .5, .5, .5, 1
+  #      Line:
+   #         width: 2
+    #        rectangle: self.x, self.y, self.width, self.height
+     #       #radius: [20,]
+
+<ImageButton>:
+    size_hint_min_y: dp(40)
+    background_color: 0, 0, 0, 0
+    on_press: self.pressed()
+    on_release: self.released()
+    Image:
+        id: my_image
+        fit_mode: "contain"
+        source: self.parent.img_src
+        center_x: self.parent.center_x
+        center_y: self.parent.center_y
+
+<RoundedImageButton>:
+    Image:
+        id: my_image
+        fit_mode: "contain"
+        source: self.parent.img_src
+        center_x: self.parent.center_x
+        center_y: self.parent.center_y
+
 <LightButton>:
     canvas.before:
         Color:
@@ -33,49 +74,70 @@
         #allow_stretch: True
 
 <PlayButton>:
+#    size_hint_min_y: dp(40)
+#    Image:
+#        fit_mode: "scale-down"
+#        height: dp(40)
+#        source: 'images/play.png'
+#        center_x: self.parent.center_x
+#        center_y: self.parent.center_y
     size_hint_min_y: dp(40)
+    background_color: 0, 0, 0, 0
+    on_press: self.pressed()
     Image:
+        id: my_image
         fit_mode: "scale-down"
-        height: dp(40)
-        source: 'images/play.png'
+        source: 'images/play.png' if self.parent.state is 'normal' else 'images/play_pressed.png'
         center_x: self.parent.center_x
         center_y: self.parent.center_y
 
-<ReturnButton>:
-    size_hint_min_y: dp(40)
-    Image:
-        fit_mode: "scale-down"
-        height: dp(40)
-        source: 'images/return.png'
-        center_x: self.parent.center_x
-        center_y: self.parent.center_y
-
-<SettingsButton>:
-    size_hint_min_y: dp(40)
-    Image:
-        fit_mode: "scale-down"
-        height: dp(40)
-        source: 'images/settings.png'
-        center_x: self.parent.center_x
-        center_y: self.parent.center_y
-
-<InfoButton>:
-    size_hint_min_y: dp(40)
-    Image:
-        fit_mode: "scale-down"
-        height: 100
-        source: 'images/info.png'
-        center_x: self.parent.center_x
-        center_y: self.parent.center_y
-
-<SaveButton>:
-    size_hint_min_y: dp(40)
-    Image:
-        fit_mode: "scale-down"
-        height: dp(40)
-        source: 'images/save.png'
-        center_x: self.parent.center_x
-        center_y: self.parent.center_y
+#<RestartButton>:
+#    size_hint_min_y: dp(40)
+#    Image:
+#        fit_mode: "scale-down"
+#        height: dp(40)
+#        source: 'images/restart.png'
+#        center_x: self.parent.center_x
+#        center_y: self.parent.center_y
+#
+#<ReturnButton>:
+#    size_hint_min_y: dp(40)
+#    Image:
+#        fit_mode: "contain"
+#        height: dp(40)
+#        source: 'images/return.png'
+#        center_x: self.parent.center_x
+#        center_y: self.parent.center_y
+#
+##<HomeButton>:
+##    img_src: 'images/home.png'
+#
+#<SettingsButton>:
+#    size_hint_min_y: dp(40)
+#    Image:
+#        fit_mode: "scale-down"
+#        height: dp(40)
+#        source: 'images/settings.png'
+#        center_x: self.parent.center_x
+#        center_y: self.parent.center_y
+#
+#<InfoButton>:
+#    size_hint_min_y: dp(40)
+#    Image:
+#        fit_mode: "scale-down"
+#        height: 100
+#        source: 'images/info.png'
+#        center_x: self.parent.center_x
+#        center_y: self.parent.center_y
+#
+#<SaveButton>:
+#    size_hint_min_y: dp(40)
+#    Image:
+#        fit_mode: "scale-down"
+#        height: dp(40)
+#        source: 'images/save.png'
+#        center_x: self.parent.center_x
+#        center_y: self.parent.center_y
 
 <DataInput>:
     multiline: False
@@ -609,29 +671,36 @@
     BoxLayout:
         orientation: "vertical"
         BoxLayout:
-            size_hint_y: 0.1
+            size_hint_y: 0.2
             Label:
                 text: "[QUANTUM~MOVEMENT]"
 
         BoxLayout:
-            size_hint_y: 0.8
+            size_hint_y: 0.7
+            size_hint_x: 0.4
             pos_hint: {"center_x": 0.5}
 
             orientation: "vertical"
             padding:20
-            spacing:20
-            Button:
-                text: "Sandbox"
+            spacing:dp(25)
+            RoundedButton:
+                size_hint_min_x: dp(200)
+                height: dp(50)
+                text: "SANDBOX"
                 on_release:
                     root.manager.transition.direction = "left"
                     app.root.current = "sandbox"
-            Button:
-                text: "Jocs"
+            RoundedButton:
+                size_hint_min_x: dp(200)
+                height: dp(50)
+                text: "JOCS"
                 on_release:
                     root.manager.transition.direction = "left"
                     app.root.current = "games"
-            Button:
-                text: "Exemples"
+            RoundedButton:
+                size_hint_min_x: dp(200)
+                height: dp(50)
+                text: "EXEMPLES"
                 on_release:
                     root.manager.transition.direction = "left"
                     app.root.current = "examples"
@@ -639,14 +708,14 @@
         BoxLayout:
             orientation: "horizontal"
             size_hint_y: 0.1
-            Label:
-                text: "Joan Ainaud Fondevila"
-            BoxLayout:
-                size_hint_x: 0.3
-                Label:
-                    text: "Gràfics Ràpids?\n(pot haver glitch visual)"
-                FastGraphicsCheckbox:
-                    active: True
+#            Label:
+#                text: "Joan Ainaud Fondevila"
+#            BoxLayout:
+#                size_hint_x: 0.3
+#                Label:
+#                    text: "Gràfics Ràpids?\n(pot haver glitch visual)"
+#                FastGraphicsCheckbox:
+#                    active: True
 
 
 <SandboxScreen>
@@ -755,7 +824,7 @@
 
                             #print(root.dropdown.ids)
 
-                ReturnButton:
+                HomeButton:
                     #text: "Retorna al\nmenu d'inici"
                     on_release:
                         root.manager.transition.direction = "right"
@@ -784,9 +853,11 @@
         orientation: "vertical"
         padding: 20
         spacing: 20
-        Label:
-            size_hint: 1, 0.15
-            text:"Jocs"
+        BoxLayout:
+            size_hint:1,0.3
+            Label:
+                size_hint: 1, 0.5
+                text:"Jocs"
         GridLayout:
             id: gameSelect
             rows: 1
@@ -795,7 +866,7 @@
         BoxLayout:
             size_hint: 1, 0.15
             orientation: "horizontal"
-            ReturnButton:
+            HomeButton:
                 #text: "Return to main screen"
                 on_release:
                     root.manager.transition.direction = "right"
@@ -818,7 +889,7 @@
         BoxLayout:
             size_hint: 1, 0.15
             orientation: "horizontal"
-            ReturnButton:
+            HomeButton:
                 #text: "Return to main screen"
                 on_release:
                     root.manager.transition.direction = "right"
