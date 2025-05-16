@@ -1,7 +1,7 @@
 # ! ! !TO DO
 # Fix sacle and cutoff to work with new implementation of changing between mod2/phase/real/imag representation
 # Ek: Vermell, V: Blau,  E: Lila
-import matplotlib
+from matplotlib.artist import Artist
 from matplotlib import animation
 import matplotlib.pyplot as plt
 import matplotlib.patheffects as peffects
@@ -95,13 +95,13 @@ def cleanFigClose(fig):
 
 #from colorsys import hls_to_rgb
 from matplotlib.colors import hsv_to_rgb
-def Complex2HSV(z, rmin=None, rmax=None, hue_start=90):
+def Complex2HSV(z, rmin=None, rmax=None, hue_start=90, mod="mod2"):
     """
     https://stackoverflow.com/a/36082859
     """
     # get amplidude of z and limit to [rmin, rmax]
-    amp = np.abs(z)
-    #amp = mathPhysics.abs2(z)
+    amp = np.abs(z) if mod=="mod" else mathPhysics.abs2(z) if mod=="mod2" else np.ones_like(z, dtype=np.int)
+    #amp = mathPhysics.abs2(z)    #We can use mod or mod^2. Mod allows better focus on phase
     if rmin != None: amp = np.where(amp < rmin, rmin, amp)
     if rmax != None: amp = np.where(amp > rmax, rmax, amp)
     ph = np.angle(z, deg=True) + hue_start
@@ -113,9 +113,9 @@ def Complex2HSV(z, rmin=None, rmax=None, hue_start=90):
 
 # We transpose!!! Because we take [i,j] -> i corresponds to x, j to y
 # Whereas in matrix representation (imshow), i would be row (y) and j column (x)
-def plotComplexData(arr, type='mod2'):
+def plotComplexData(arr, type='mod2', mod="mod2"):
     if type=='phase':
-        return Complex2HSV(arr.T)
+        return Complex2HSV(arr.T, mod=mod)
     elif type=='real':
         return arr.real.T
     elif type=='imag':
@@ -123,6 +123,26 @@ def plotComplexData(arr, type='mod2'):
     return mathPhysics.abs2(arr).T
 
 def plotComplex(arr, ax, type, range):
+    """
+    Returns plot (matplotlib drawing) of complex function, with different possible formats
+    :param arr: Wave function data, psi. Can be 1d or 2d complex array
+    :param ax: axis to be drawn on
+    :param type: type of plot: Modulus^2, phase, real, imaginary
+    :param range: Either boundaries (x0, xf, y0, yf) for 2D data or X array for 1D [x0, x0+dx, ..., xf]
+    :return: Plotted wavefunction
+    """
+    if arr.ndim == 1:
+        if type != 'phase':
+            return ax.plot(range, plotComplexData(arr, type))
+        else:
+            ax.margins(0.)
+            data = plotComplexData(arr)
+            ymin, ymax = (data.min(), data.max())
+            dat = ax.imshow(plotComplexData(arr, type, mod="phase"),extent=(range[0],range[-1], ymin, ax.get_ylim()[1]),interpolation='bilinear', aspect='auto')
+            filll = ax.fill_between(range, data, ymax, color='w')
+            plott = ax.plot(range, data, 'k')
+            return dat, filll, plott
+
     if type=='phase':
         return ax.imshow(plotComplexData(arr, type), origin='lower', extent=range, aspect='equal', interpolation='none')
     elif type=='mod2':
@@ -147,7 +167,8 @@ class QuantumAnimation:  # inches
                  debugTime=False, callbackProgress=False, isFocusable=True,
                  drawClassical=False, drawClassicalTrace=False, drawExpected=False, drawExpectedTrace=False,
                  unit_dist='Å', unit_time='fs', unit_energy='eV', unit_mom=r'$\frac{1}{2}\hbar Å^{-1}$',
-                 toolbar=False, customPlot=None, customPlotUpdate=False, customPlotFull=False,):
+                 toolbar=False, customPlot=None, customPlotUpdate=False, customPlotFull=False,
+                 language='eng'):
         """
         Declaration of a Quantum Animation
         :param QSystem: Quantum System. The physics happen here, see crankNikolson2D QuantumSystem class.
@@ -172,6 +193,7 @@ class QuantumAnimation:  # inches
         :param extraUpdates: Run some extra functions every update
         :param isKivy: Links canvas to Kivy Backend and disables automatic animation
         :param customPlot: Tuple: (createPlot, updatePlot). updatePlot should return True if redraw necessary.
+        :param language: 3word string representing language. Available: eng, esp, cat
         """
 
         self.dtAnim = dtAnim
@@ -224,6 +246,7 @@ class QuantumAnimation:  # inches
 
         self.units = {"unit_dist": unit_dist, "unit_energy": unit_energy, "unit_time": unit_time, "unit_mom": unit_mom}
 
+        self.language = language
 
         self.paused = isKivy  #if isKivy we start paused, else the animation is ready to play
         self.text = None
@@ -294,7 +317,8 @@ class QuantumAnimation:  # inches
         self.firstDraw = True
 
         if self.isKivy:
-            Clock.schedule_once(lambda t: self.reset_plot(
+            Clock.schedule_once(lambda t:
+            self.reset_plot(
             drawClassical=drawClassical, drawClassicalTrace=drawClassicalTrace, drawExpected=drawExpected, drawExpectedTrace=drawExpectedTrace,
             forceRecreate=True))
         else:
@@ -313,7 +337,7 @@ class QuantumAnimation:  # inches
                    showEnergy=None, forceEnergy=None, showNorm=None, forceNorm=None, showMomentum=None, showPotential=None,
                    scalePsi=None, scaleMom=None, zoomMom=None, scalePot=None, psiRepresentation=None, momRepresentation=None,
                    drawClassical=None, drawClassicalTrace=None, drawExpected=None, drawExpectedTrace=None,
-                   forceRecreate = False, customPlot = None):
+                   forceRecreate = False, customPlot = None, language=None):
 
         recreate = False
 
@@ -336,6 +360,8 @@ class QuantumAnimation:  # inches
         if drawExpected != None: self.drawExpected = drawExpected
         if drawExpectedTrace != None: self.drawExpectedTrace = drawExpectedTrace
         if customPlot != None: self.customPlot = customPlot
+        if language != None: self.language = language
+        lan = self.language
 
         if not self.isKivy: self.fig.figsize = (self.width, self.height)
         if recreate or forceRecreate:
@@ -379,8 +405,9 @@ class QuantumAnimation:  # inches
 
             # First drawing
             ###self.QSystem.modSquared()  ### Not generic
-            title = "Espai de posicions"
-            if self.scalePsi: title += " (color reescalat)"
+            lan = self.language
+            title = "Position Space" if lan == 'eng' else "Espai de posicions" if lan == 'cat' else 'Espacio de posiciones'
+            if self.scalePsi: title += " (rescaled color)" if lan == 'eng' else " (color reescalat)" if lan == 'cat' else " (color reescalado)"
             self.axPsi.set_title(title)
             self.axPsi.set_xlabel("x ({})".format(self.unit_dist))
             self.axPsi.set_ylabel("y ({})".format(self.unit_dist))
@@ -390,9 +417,7 @@ class QuantumAnimation:  # inches
                                             aspect='equal', cmap="viridis",
                                             interpolation='none')  # , animated=True) # Doesn't do anything for imshow?"""
             if self.showPotential:
-                mathPhysics.set2DMatrix(self.QSystem.X, self.QSystem.Y,
-                                        self.QSystem.potential, self.potentialMat,
-                                        t=self.QSystem.t, extra_param=self.QSystem.extra_param)
+                self.QSystem.potentialMatrix(self.potentialMat)
                 self.datPot = self.axPsi.imshow(self.potentialMat.T, origin='lower',
                                                 extent=(self.QSystem.x0, self.QSystem.xf, self.QSystem.y0, self.QSystem.yf),
                                                 aspect='equal', cmap='gist_heat', alpha=0.3,
@@ -406,7 +431,7 @@ class QuantumAnimation:  # inches
 
 
             if self.showEnergy:
-                self.axEnergy.set_title("Energia")
+                self.axEnergy.set_title("Energy" if lan == 'eng' else "Energia" if lan == 'cat' else "Energía")
                 if len(self.TList) == 0: self.axEnergy.set_xlim(self.QSystem.t, self.QSystem.t + 5)
                 """# Reshaping axis is slow. This is to make sure we almost surely don't need to
                 minValE = min(np.min(self.potentialMat) - 1., 0.)
@@ -430,7 +455,7 @@ class QuantumAnimation:  # inches
                 self.axEnergy.legend()
 
             if self.showNorm:
-                self.axNorm.set_title("Normalització")
+                self.axNorm.set_title("Normalization" if lan == 'eng' else "Normalització" if lan == 'cat' else "Normalización")
                 self.axNorm.set_xlabel("t ({})".format(self.unit_time))
                 if len(self.TList) == 0: self.axNorm.set_xlim(self.QSystem.t, self.QSystem.t + 5)  # 0, 5
                 ####
@@ -440,8 +465,8 @@ class QuantumAnimation:  # inches
 
             if self.showMomentum:
                 self.QSystem.momentumSpaceModSquared()
-                title = "Espai de moments"
-                if self.scaleMom: title += " (color reescalat)"
+                title = "Momentum space" if lan == 'eng' else "Espai de moments" if lan == 'cat' else "Espacio de momentos"
+                if self.scaleMom: title += " (rescaled color)" if lan == 'eng' else " (color reescalat)" if lan == 'cat' else " (color reescalado)"
                 self.axMomentum.set_title(title)
                 self.axMomentum.set_xlabel("Px ({})".format(self.unit_mom))
                 self.axMomentum.set_ylabel("Py ({})".format(self.unit_mom))
@@ -497,12 +522,12 @@ class QuantumAnimation:  # inches
             for action in self.extraUpdates:
                 updated = action(instance=self)
                 # except: updated = action()
-                if updated != None:
+                """if updated != None:
                     if type(updated) is tuple:
                         for el in updated:
                             self.fig.draw_artist(el)
                     else:
-                        self.fig.draw_artist(updated)
+                        self.fig.draw_artist(updated)"""
 
 
         self.fig.tight_layout()   # In newer matplotlib versions we should use constrained layouts
@@ -624,9 +649,7 @@ class QuantumAnimation:  # inches
 
         if self.showPotential:
             if self.varyingPotential:
-                mathPhysics.set2DMatrix(self.QSystem.X, self.QSystem.Y,
-                                        self.QSystem.potential, self.potentialMat,
-                                        t=self.QSystem.t, extra_param=self.QSystem.extra_param)
+                self.QSystem.potentialMatrix(self.potentialMat)
                 if self.potentialCutoff != None:
                     self.potentialMat[self.potentialMat < self.potentialCutoff] = None
                 #if onlyDraw: self.datMom.set_clim(vmax=np.max(self.QSystem.psiMod.T), vmin=0.)  # Being general we are slower!
@@ -664,7 +687,7 @@ class QuantumAnimation:  # inches
         if self.customPlot is not None:
             self.redraw = self.customPlot[1](self.axCustom, self.datCustom, self.QSystem, self.units)
             for dat in self.datCustom.values():
-                if issubclass(type(dat), matplotlib.artist.Artist): changes.append(dat)
+                if issubclass(type(dat), Artist): changes.append(dat)
 
         self.TList.append(self.QSystem.t)
         if self.showEnergy or self.forceEnergy:   #Always store it?
@@ -808,9 +831,7 @@ class QuantumAnimation:  # inches
         #t0 = time.time()
         if self.showPotential:
             self.updating = True
-            mathPhysics.set2DMatrix(self.QSystem.X, self.QSystem.Y,
-                                    self.QSystem.potential, self.potentialMat,
-                                    t=self.QSystem.t, extra_param=self.QSystem.extra_param)
+            self.QSystem.potentialMatrix(self.potentialMat)
             if self.potentialCutoff != None:
                 self.potentialMat[self.potentialMat < self.potentialCutoff] = None
             # if onlyDraw: self.datMom.set_clim(vmax=np.max(self.QSystem.psiMod.T), vmin=0.)  # Being general we are slower!
@@ -844,7 +865,7 @@ class QuantumAnimation:  # inches
             if self.customPlotUpdate and self.customPlot is not None:
                 self.customPlot[1](self.axCustom, self.datCustom, self.QSystem, self.units)
                 for dat in self.datCustom.values():
-                    if issubclass(type(dat), matplotlib.artist.Artist): artists.add(dat)
+                    if issubclass(type(dat), Artist): artists.add(dat)
 
             for art in artists:
                 self.fig.draw_artist(art)
@@ -883,7 +904,7 @@ class QuantumAnimation:  # inches
         if type == "gif":
             relPath += ".gif"
             absPath = (mainDir / relPath).resolve()
-            writergif = matplotlib.animation.PillowWriter(fps=int(1 / self.dtAnim))
+            writergif = animation.PillowWriter(fps=int(1 / self.dtAnim))
             self.animation.save(absPath, writer=writergif) #dpi for resolution, default 100
             #self.animation.save('./Resultats/{}.gif'.format(outputName), writer=writergif)
         elif type == "mp4":

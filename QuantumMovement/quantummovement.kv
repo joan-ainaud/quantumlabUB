@@ -158,7 +158,7 @@
 <ColoredBoxLayout>:
     canvas.before:
         Color:
-            rgba: (240/255, 240/255, 240/255, 1)
+            rgba: self.rgba #(240/255, 240/255, 240/255, 1)
         Rectangle:
             pos: self.pos
             size: self.size
@@ -200,7 +200,7 @@
 
 <SavedStatesPopup>:
     auto_dismiss: True
-    title: "Estats guardats"
+    title: "Saved States" if root.window.manager.language == 'eng' else "Estats Guardats" if root.window.manager.language == 'cat' else "Estados Guardados"
     size_hint: 0.75, 0.75
     BoxLayout:
         orientation: "vertical"
@@ -213,7 +213,7 @@
                 size_hint_x: 0.15
                 id: stateName
                 multiline: False
-                text: "nouEstat"
+                text: "nstate"
                 on_text_validate:
             StateExpression:
                 id: stateCreator
@@ -221,7 +221,7 @@
                 varDict: root.window.variablesDict
             Button:
                 size_hint_x: 0.15
-                text: "Crea\nEstat"
+                text: "Create\nState" if root.window.manager.language == 'eng' else "Crea\nEstat" if root.window.manager.language == 'cat' else "Crea\nEstado"
                 on_release:
                     stateCreator.on_text_validate()
 
@@ -240,7 +240,7 @@
 
 <SavedEigenstatesPopup>:
     auto_dismiss: True
-    title: "Estats pròpis guardats"
+    title: "Saved Eigenstates" if root.window.manager.language == 'eng' else "Estats Pròpis Guardats" if root.window.manager.language == 'cat' else "Estados Propios Guardados"
     size_hint: 0.75, 0.75
     BoxLayout:
         orientation: "vertical"
@@ -264,7 +264,7 @@
                 cols:2
                 Label:
                     halign: "center"
-                    text: "max\niteracions"
+                    text: "max\niter"
                 DataInput:
                     size_hint_x: 0.4
                     id: maxIter
@@ -274,7 +274,7 @@
             Button:
                 id: eigenButton
                 size_hint_x: 0.6
-                text: "Busca següent\nEigenstat"
+                text: "Search next\nEigenstate" if root.window.manager.language == 'eng' else "Busca següent\nEigenestat" if root.window.manager.language == 'cat' else 'Busca siguiente\nEigenestado'
                 on_release:
                     root.eigenFind()
                     #root.window.QSystem.approximateEigenstate(tol=root.tol,maxiter=root.maxiter, callback=root.callback)
@@ -304,7 +304,7 @@
     auto_dismiss: True
     size_hint_x: 0.8
     size_hint_y: 0.8
-    title: "Paràmetres/Variables : Nom - Valor"
+    title: "Paràmetres/Variables : Nom - Valor" if self.window.manager.language == 'cat' else "Parameters/Variables : Name - Value" if self.window.manager.language == 'eng' else "Parámetros/Variables : Nombre - Valor"
 
 <Label>:
     #markup: True
@@ -337,18 +337,18 @@
         orientation: "vertical"
 
         ColoredLabel:
-            text: "Es guardarà una animació de l'evolució\n a partir del moment actual"
+            text: "Es guardarà una animació de l'evolució\n a partir del moment actual" if root.window.manager.language == 'cat' else "An animation for the state's\nevolution will be saved" if root.window.manager.language == 'eng' else 'Se guardará una animación\ndel estado actual'
         BoxLayout:
             orientation:"horizontal"
             Label:
-                text: "Duració real:\n(segons)"
+                text: "Duració real:\n(segons)" if root.window.manager.language == 'cat' else "Duration:\n(seconds)" if root.window.manager.language == 'eng' else 'Duración real:\n(segundos)'
             DataInput:
                 holder: root
                 attribute: "duration"
                 condition: "positive"
                 id: duration
             Label:
-                text: "Nom output:"
+                text: "Nom output:" if root.window.manager.language == 'cat' else "Output name:" if root.window.manager.language == 'eng' else 'Nombre out:'
             DataInput:
                 holder: root
                 attribute: "fileName"
@@ -358,13 +358,13 @@
             cols: 2
             rows: 2
             Label:
-                text: "Amplada (in):"
+                text: "Amplada (in):" if root.window.manager.language == 'cat' else "Width (in):" if root.window.manager.language == 'eng' else 'Anchura (in):'
             DataInput:
                 holder: root
                 attribute: "animwidth"
                 condition: "range-1-15"
             Label:
-                text: "Alçada (in):"
+                text: "Alçada (in):" if root.window.manager.language == 'cat' else "Height (in):" if root.window.manager.language == 'eng' else 'Altura (in):'
             DataInput:
                 holder: root
                 attribute: "animheight"
@@ -373,17 +373,17 @@
         GridLayout:
             cols:3
             Button:
-                text:"Crea .gif"
+                text:"Create .gif" if root.window.manager.language == 'eng' else "Crea .gif"
                 on_release:
                     root.saveAnimation(root.fileName, root.duration, "gif")
                     root.dismiss()
             Button:
-                text:"Crea .mp4"
+                text:"Create .mp4" if root.window.manager.language == 'eng' else "Crea .mp4"
                 on_release:
                     root.saveAnimation(root.fileName, root.duration, "mp4")
                     root.dismiss()
             Button:
-                text:"Tira enrere"
+                text:"Surt" if root.window.manager.language == 'cat' else "Go back" if root.window.manager.language == 'eng' else "Vuelve"
                 on_release:
                     root.dismiss()
 
@@ -392,7 +392,9 @@
     auto_dismiss: True # default should be true regardless
     size_hint_y: 0.9
     size_hint_x: 0.9
-    title: "Configuració"#: ENTER per efectuar canvis"
+    lan: root.window.manager.language
+    title: "Configuració" if self.lan == 'cat' else "Settings" if self.lan == 'eng' else 'Configuración' #: ENTER per efectuar canvis"
+
 
     BoxLayout:
         orientation: "vertical"
@@ -405,10 +407,10 @@
             cols:2
             Label:
                 size_hint_x:0.7
-                text: "Funcions poden dependre de x, y, t. Es pot fer servir radi r\nPotències amb **, no ^. Es poden incloure var. glob amb {nomVar}\nEs poden fer ifs suaus amb heaviside(x,k), k més gran vol dir menys suau\nA parts: F1 if COND1 else (F2 if COND2 else (... (Fn if CONDn else F)...)"
+                text: "Func( x, y, r, t ), r^2 = x^2 + y^2\nVar. Glob: {nameVar}\nheaviside(x,k), k strength\nIfs: F1 if COND1 else ( ... (Fn if CONDn else F)...)"
             Button:
                 size_hint_x:0.3
-                text: "Variables\nGlobals"
+                text: "Variables\nGlobals" if root.lan =='cat' else "Global\nVariables" if root.lan=='eng' else "Variables\nGlobales"
                 on_release:
                     Factory.GlobalVariablesPopup(root.window).open()
 
@@ -420,29 +422,16 @@
                 width: 200
                 rows: 3
                 Label:
-                    text: "Potencial:"
+                    text: "Potencial" if root.lan =='cat' else "Potential" if root.lan=='eng' else "Potencial"
                 Button:
-                    text: "Aplica canvi"
+                    text: "Aplica canvi" if root.lan =='cat' else "Apply change" if root.lan=='eng' else "Aplica cambio"
                     on_release:
                         root.setPotential()
-#                        if(root.ids.potential.on_text_validate()==0):
-#                            root.window.QSystem.potential = root.window.potential
-#                            root.window.animation.reset_plot()
+
                 Button:
-                    text: "Previsualitza"
+                    text: "Previsualitza" if root.lan =='cat' else "Preview" if root.lan=='eng' else "Previsualiza"
                     on_release:
                         root.previewPotential()
-#                        copy = root.window.potential
-#                        copyDef = root.window.potentialDef
-#
-#                        if(root.ids.potential.on_text_validate()==0):
-#                            root.window.QSystem.setPotential(root.window.potential)
-#
-#                            root.window.potential = copy
-#                            root.window.potentialDef = copyDef
-#
-#                            root.window.tempState["psi"] = root.window.QSystem.psiMod
-#                            Factory.PlotPopup(root.window.tempState).open()
 
             FunctionInput:
                 id: potential
@@ -457,30 +446,16 @@
                 width: 200
                 rows: 3
                 Label:
-                    text: "Estat Inicial:"
+                    text: "Estat Inicial:" if root.lan =='cat' else "Initial State:" if root.lan=='eng' else "Estado Inicial:"
                 Button:
-                    text: "Aplica canvi"
+                    text: "Aplica canvi" if root.lan =='cat' else "Apply change" if root.lan=='eng' else "Aplica cambio"
                     on_release:
                         root.setInitState()
-#                        if(root.ids.initState.on_text_validate()==0):
-#                            root.window.QSystem.setState(root.window.initState)
-#                            root.window.animation.reset_plot()
 
                 Button:             # SOMEWHAT DUPLICATE CODE WITH POTENTIAL
-                    text: "Previsualitza"
+                    text: "Previsualitza" if root.lan =='cat' else "Preview" if root.lan=='eng' else "Previsualiza"
                     on_release:
                         root.previewInitState()
-#                        copy = root.window.initState
-#                        copyDef = root.window.initStateDef
-#
-#                        if(root.ids.initState.on_text_validate()==0):
-#                            root.window.QSystem.setTempState(root.window.initState)
-#
-#                            root.window.initState = copy
-#                            root.window.initStateDef = copyDef
-#
-#                            root.window.tempState["psi"] = root.window.QSystem.psiCopy
-#                            Factory.PlotPopup(root.window.tempState).open()
 
             FunctionInput:
                 id: initState
@@ -494,7 +469,7 @@
             GridLayout:
                 cols: 2
                 Button:
-                    text: "Nou Sistema"
+                    text: "Nou Sistema" if root.lan =='cat' else "New System" if root.lan=='eng' else "Nuevo Sistema"
                     on_release:
                         root.window.newSystem()
                 GridLayout:
@@ -554,7 +529,7 @@
                     attribute: "dtSim"
                     id: dtSim
                 ToggleButton:
-                    text: "Pas Imaginari\n(* i)"
+                    text: "Imag dt \n(* i)"
                     state: 'down' if root.window.animation.imagdt else 'normal'
                     on_press:
                         root.window.animation.imagdt = not root.window.animation.imagdt
@@ -579,11 +554,12 @@
                 cols: 4
 
                 Button:
-                    text:"Simulació i\nDebugging"
+                    text:"Simulació i\nDebugging" if root.lan =='cat' else "Simulation and\nDebugging" if root.lan=='eng' else "Simulación y\nDebugging"
                     on_release: Factory.DebugPopup(root.window).open()
 
 <DebugPopup>:
     title:""
+    lan: self.window.manager.language
     size_hint: 0.7, 0.7
     BoxLayout:
         orientation: "vertical"
@@ -591,48 +567,60 @@
             adi: adi
             exact: exact
             eigen: eigen
-            cols: 4
+            cols: 5
             Label:
-                text: "Mètodes de\nsimulació"
+                text: "Mètodes de\nsimulació" if root.lan =='cat' else "Simulation\nmethods" if root.lan=='eng' else "Métodos de\nsimulación"
             ToggleButton:
                 id: adi
-                text: "Crank-Nic ràpid\nADI (altern. dir.)"
+                text: "Crank-Nic ADI\n(altern. dir.)"
                 state: 'down' if root.window.QSystem.step == 'fastest' else 'normal'
                 on_press:
                     root.window.QSystem.step = 'fastest'
                     exact.state = 'normal'
                     eigen.state = 'normal'
+                    spliteigen.state = 'normal'
             ToggleButton:
                 id: exact
-                text: "Crank-Nic exacte\n(molt lent)"
+                text: "Crank-Nic exact\n(slooow)"
                 state: 'down' if root.window.QSystem.step == 'exact' else 'normal'
                 on_press:
                     root.window.QSystem.step = 'exact'
                     adi.state = 'normal'
                     eigen.state = 'normal'
+                    spliteigen.state = 'normal'
             ToggleButton:
                 id: eigen
-                text: "Crank-Nic amb\nEigenvectors K"
+                text: "Crank-Nic\nEigen K"
                 state: 'down' if root.window.QSystem.step == 'eigen' else 'normal'
                 on_press:
                     root.window.QSystem.step = 'eigen'
                     adi.state = 'normal'
                     exact.state = 'normal'
+                    spliteigen.state = 'normal'
+            ToggleButton:
+                id: spliteigen
+                text: "Exponent\nEigen K"
+                state: 'down' if root.window.QSystem.step == 'spliteigen' else 'normal'
+                on_press:
+                    root.window.QSystem.step = 'spliteigen'
+                    adi.state = 'normal'
+                    exact.state = 'normal'
+                    eigen.state = 'normal'
         GridLayout:
             cols: 4
             Button:
                 id: renorm
-                text: "Renormalitza"
+                text: "Renormalitza" if root.lan == 'cat' else "Renormalize" if root.lan == 'eng' else 'Renormaliza'
                 on_release:
                     root.window.QSystem.renorm()
             ToggleButton:
-                text: "Renormalitza\ncada pas"
+                text: "Renormalitza\ncada pas" if root.lan == 'cat' else "Renormalize\neach step" if root.lan == 'eng' else 'Renormaliza\ncada paso'
                 state: 'down' if root.window.QSystem.renormStep else 'normal'
                 on_press:
                     root.window.QSystem.renormStep = not root.window.QSystem.renormStep
 
             Label:
-                text: "Mostra Norma"
+                text: "Mostra norma" if root.lan == 'cat' else "Show norm" if root.lan == 'eng' else 'Muestra norma'
             CheckBox:
                 active: root.window.animation.showNorm
                 on_active: root.window.animation.reset_plot(showNorm=self.active)
@@ -648,12 +636,12 @@
                     #root.QSystem.approximateEigenstate()
                     #root.animation.manualUpdate(onlyDraw=True)
             ToggleButton:
-                text: "Rescala psi\ncada pas"
+                text: "Rescala psi\ncada pas" if root.lan == 'cat' else "Rescale psi\neach step" if root.lan == 'eng' else "Rescala psi\ncada paso"
                 state: 'down' if root.window.animation.scalePsi else 'normal'
                 on_press:
                     root.window.animation.reset_plot(scalePsi=not root.window.animation.scalePsi, forceRecreate=True)
             ToggleButton:
-                text: "Rescala moment\ncada pas"
+                text: "Rescala moment\ncada pas" if root.lan == 'cat' else "Rescale P\neach step" if root.lan == 'eng' else "Rescala momento\ncada paso"
                 state: 'down' if root.window.animation.scaleMom else 'normal'
                 on_press:
                     root.window.animation.reset_plot(scaleMom = not root.window.animation.scaleMom, forceRecreate=True)
@@ -670,13 +658,40 @@
     name: "main"
     BoxLayout:
         orientation: "vertical"
-        BoxLayout:
+        FloatLayout:
             size_hint_y: 0.2
+
             Label:
-                text: "[QUANTUM~MOVEMENT]"
+                size_hint_x: None
+                size_hint_y: None
+                height: sp(25*1.5)
+                width: sp(25*16*0.8)
+                pos_hint: {'center_x': .5, 'center_y': .5}
+                text: "[b][color=aa00aa]QUANTUM MOVEMENT[/color][/b]"
+                font_size: sp(25)
+                markup: True
+
+                canvas.before:
+                    Color:
+                        rgba: .7, .0, .7, 1
+                    Line:
+                        width: 3
+                        rectangle: self.x, self.y, self.width, self.height
+
+            Spinner:
+                size_hint_x: None
+                size_hint_y: None
+                height: sp(25*2)
+                width: sp(25*3.5*0.8)
+                pos_hint: {'right': .95, 'top': .95}
+                id: language_select
+                text: root.manager.language
+                values: ['cat', 'esp', 'eng']
+
+                on_text: root.change_language(self.text)# root.manager.language = self.text
 
         BoxLayout:
-            size_hint_y: 0.7
+            size_hint_y: 0.5
             size_hint_x: 0.4
             pos_hint: {"center_x": 0.5}
 
@@ -688,34 +703,46 @@
                 height: dp(50)
                 text: "SANDBOX"
                 on_release:
+                    root.manager.get_screen("sandbox").first_enter()
                     root.manager.transition.direction = "left"
                     app.root.current = "sandbox"
             RoundedButton:
                 size_hint_min_x: dp(200)
                 height: dp(50)
-                text: "JOCS"
+                text: "GAME" if root.manager.language == 'eng' else "JOC" if root.manager.language == 'cat' else "JUEGO"
                 on_release:
                     root.manager.transition.direction = "left"
                     app.root.current = "games"
             RoundedButton:
                 size_hint_min_x: dp(200)
                 height: dp(50)
-                text: "EXEMPLES"
+                text: "EXAMPLES" if root.manager.language == 'eng' else "EXEMPLES" if root.manager.language == 'cat' else 'EJEMPLOS'
                 on_release:
                     root.manager.transition.direction = "left"
                     app.root.current = "examples"
 
         BoxLayout:
             orientation: "horizontal"
-            size_hint_y: 0.1
-#            Label:
-#                text: "Joan Ainaud Fondevila"
-#            BoxLayout:
-#                size_hint_x: 0.3
-#                Label:
-#                    text: "Gràfics Ràpids?\n(pot haver glitch visual)"
-#                FastGraphicsCheckbox:
-#                    active: True
+            size_hint_y: 0.2
+            Label:
+                size_hint_x: None
+                width: sp(10*20)
+                text: "[b]Made by[/b]:\nJoan Ainaud\n[b]With supervision[/b]:\nBruno Juli"+u'\xe1'+"\nCarles Calero"
+                font_size: sp(10)
+                markup: True
+            FloatLayout:
+                Image:
+                    size_hint_x: None
+                    width: dp(200)
+                    pos_hint: {"right": 0.95, "center_y": 0.5}
+                    source: "images/ub_logo.png"
+            #SettingsButton:
+            #    on_release:
+            #        Factory.Popup().open()
+            #Label:
+            #    text: "Gràfics Ràpids?\n(pot haver glitch visual)"
+            #FastGraphicsCheckbox:
+            #    active: True
 
 
 <SandboxScreen>
@@ -752,7 +779,7 @@
                     rows:3
                     Button:
                         id: resetButton
-                        text: "Neteja/Reset"
+                        text: "Clean/Reset" if root.manager.language == 'eng' else "Neteja/Reset" if root.manager.language == 'cat' else "Limpia/Reset"
                         on_release:
                             root.animation.reset_lists()
                             root.animation.frame=0
@@ -762,30 +789,32 @@
                         cols: 2
                         ToggleButton:
                             id: showclassical
-                            text: "Part. Clàssica"
-                            state: 'down' if root.animation.drawClassical else 'normal'
+                            text: "Classic Part." if root.manager.language == 'eng' else "Part. Clàssica" if root.manager.language == 'cat' else "Part. Clássica"
+                            state: 'down' if root.not_opened else 'down' if root.animation.drawClassical else 'normal'
                             on_press:
                                 root.animation.reset_plot(drawClassical=not root.animation.drawClassical)
                         ToggleButton:
                             size_hint_x: 0.2
                             id: showclassicaltrace
-                            text: "--"
-                            state: 'down' if root.animation.drawClassicalTrace else 'normal'
+                            text: "o--"
+                            disabled: showclassical.state == 'normal'
+                            state: 'down' if root.not_opened else 'down' if root.animation.drawClassicalTrace else 'normal'
                             on_press:
                                 root.animation.reset_plot(drawClassicalTrace=not root.animation.drawClassicalTrace)
                     GridLayout:
                         cols: 2
                         ToggleButton:
                             id: showexpected
-                            text: "Pos. esperada"
-                            state: 'down' if root.animation.drawExpected else 'normal'
+                            text: "Expected Pos." if root.manager.language == 'eng' else "Pos. Esperada" if root.manager.language == 'cat' else "Pos. Esperada"
+                            state: 'down' if root.not_opened else 'down' if root.animation.drawExpected else 'normal'
                             on_press:
                                 root.animation.reset_plot(drawExpected=not root.animation.drawExpected)
                         ToggleButton:
                             size_hint_x: 0.2
                             id: showexpectedtrace
-                            text: "--"
-                            state: 'down' if root.animation.drawExpectedTrace else 'normal'
+                            text: "o--"
+                            disabled: showexpected.state == 'normal'
+                            state: 'down' if root.not_opened else 'down' if root.animation.drawExpectedTrace else 'normal'
                             on_press:
                                 root.animation.reset_plot(drawExpectedTrace=not root.animation.drawExpectedTrace)
 
@@ -793,7 +822,7 @@
                     rows: 3
                     Button:
                         id: saveState
-                        text :"Guarda Estat"
+                        text :"Save State" if root.manager.language == 'eng' else "Guarda Estat" if root.manager.language == 'cat' else "Guarda Estado"
                         on_release:
                             root.saveState()
                     TextInput:
@@ -802,7 +831,7 @@
                         text: "est0"
                     Button:
                         id: savedStates
-                        text :"Estats Guardats"
+                        text : "Saved States" if root.manager.language == 'eng' else "Estats Guardats" if root.manager.language == 'cat' else "Estados Guardados"
                         on_release:
                             Factory.SavedStatesPopup(root).open()
                 GridLayout:
@@ -857,7 +886,8 @@
             size_hint:1,0.3
             Label:
                 size_hint: 1, 0.5
-                text:"Jocs"
+                text: "Games" if root.manager.language == 'eng' else "Jocs" if root.manager.language == 'cat' else "Juegos"
+                font_size: sp(20)
         GridLayout:
             id: gameSelect
             rows: 1
@@ -880,12 +910,33 @@
         spacing: 20
         Label:
             size_hint: 1, 0.15
-            text:"Exemples"
-        GridLayout:
-            id: exampselect
-            rows: 2
-            spacing: 40
-
+            text:"Examples" if root.manager.language == 'eng' else "Exemples" if root.manager.language == 'cat' else "Ejemplos"
+            font_size: sp(20)
+        TabbedPanel:
+            do_default_tab: False
+            TabbedPanelItem:
+                text: ' '
+                ScrollView:
+                    #do_scroll_x: False
+                    #do_scroll_y: True
+                    #BoxLayout:
+                    bar_width: dp(4)
+                    bar_color: [.3, .3, .9, .9] #[.7, .7, .7, .9]
+                    bar_inactive_color: [.5, .5, .9, .9] #[.7, .7, .7, .2]
+                    GridLayout:
+                        size_hint_y: None
+                        height: self.minimum_height
+                        cols:1
+                        row_default_height: sp(70)
+                        #orientation: 'vertical'
+                        id: exampselect
+                        #rows: 2
+                        spacing: 20
+                        padding: 10
+        #GridLayout:
+        #    id: exampselect
+        #    rows: 2
+        #    spacing: 40
         BoxLayout:
             size_hint: 1, 0.15
             orientation: "horizontal"
@@ -899,3 +950,17 @@
 <PlayScreen>:
     name: "playscreen"
 
+    BoxLayout:
+        id: mainBox
+        orientation: "vertical"
+        BoxLayout:
+            id: plotBox
+            size_hint: 1, 0.8
+            RelativeLayout:
+                id: plotRelative
+        BoxLayout:
+            id: buttonBox
+            size_hint: (1, 0.2)
+            orientation: "horizontal"
+            padding: 10
+            spacing: 20

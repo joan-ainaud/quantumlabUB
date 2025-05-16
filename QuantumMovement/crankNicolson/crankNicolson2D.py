@@ -125,6 +125,11 @@ def set2DMatrix(X, Y, func, psi, t=0., extra_param=np.array([])):
         for j in range(len(Y)):
             psi[i,j] = func(X[i],Y[j], t, extra_param)
 
+@jit(nopython=True)
+def set1DArray(X, func, psi, t=0., extra_param=np.array([])):
+    for i in range(len(X)):
+        psi[i] = func(X[i], t, extra_param)
+
 
 @jit(nopython=True)
 def euclidNorm(psi, dx, dy):
@@ -689,35 +694,6 @@ def tridiag(gamma, trid, bVec, xVec):
     for j in range(len(bVec)-1):
         xVec[len(bVec)-2-j] = xVec[len(bVec)-2-j] - gamma[len(bVec)-j-1]*xVec[len(bVec)-j-1]
 
-@jit(nopython=True)
-def diagonals(gamma, diagonals, bVec, xVec):
-    """
-    Solves tridiagonal band system.
-    Sadly it's really really really computation heavy, but most importantly memory heavy
-
-        matrix:     D-m(0)  ....  D-1(0) |D 0(0) D+1(0)  ....  D+m(0)  ....   ....   ....  |
-                           D-m(1)  ....  |D-1(1) D 0(1) D+1(1)  ....  D+m(1)  ....   ....  |    * PSI    =   bVec
-                                         | ....   ....   ....   ....   ....   ....   ....  |
-                                         |D-m(m)  ....  D-1(m) D 0(m) D+1(m)  ....  D+m(m) |
-                                         | ....   ....   ....   ....   ....   ....   ....  |
-                                         | ....   ....  D-m(n)  ....   ....  D-1(n) D 0(n) | D+1(n)  ....  D+m(n)
-    :param gamma: numpy vector of size n+1. Must be already created to avoid allocating memory every time tridiag is called
-    :param trid: tridiagonal matrix
-    :param bVec: Right side vector
-    :param xVec: Unknown vector to find
-    :return:
-    """
-    #if trid[1,0] == 0.: raise ValueError("matriu tridiagonal invàlida pel mètode tridiagonal, 0 a la diagonal")
-    beta = trid[1,0]
-    xVec[0]=bVec[0]/beta
-    for j in range(1,len(bVec)):
-        gamma[j]=trid[2,j-1]/beta
-        beta=trid[1,j]-trid[0,j]*gamma[j]
-        #if beta == 0: raise ValueError("Matriu singular")     # It is better to check == 0 with tolerance
-        xVec[j]=(bVec[j]-trid[0,j]*xVec[j-1])/beta
-
-    for j in range(len(bVec)-1):
-        xVec[len(bVec)-2-j] = xVec[len(bVec)-2-j] - gamma[len(bVec)-j-1]*xVec[len(bVec)-j-1]
 
 
 @jit(nopython=True)
@@ -1132,21 +1108,99 @@ def crankNicolson2DSchrodingerStepClosedBoxEigen(X, Y, t, dt, potential, psi, ps
     # Pxm*Pym = grid with P^2 at each point
     #psiEigen *= (1 - 1j*dt/(2*hred) * (Px2m+Py2m))
     #psiEigen /= (1 + 1j*dt/(2*hred) * (Px2m+Py2m))
-    psiEigen *= np.exp(-dt* 1j/hred * (Px2m+Py2m))
+    psiEigen *= np.exp(-dt* 1j/hred * (Px2m+Py2m))     #THIS CAN BE OTPIMIZED. NO NEED OT CALCULATE N^2 DIFERENT TIMES EXP()
 
     psi[1:-2, 1:-2] = idstn(psiEigen, type=1)
 
     psi /= (1 + 1j*dt/(2*hred) * psiMod)
 
 
+def crankNicolson2DSchrodingerStepClosedBoxSplitEigen(X, Y, t, dt, potential, psi, psiEigen, psiMod, extra_param=np.array([])):
+    """We solve the CrankNicolson step factorizing the operators and switching to momentum space for momentum oeprators"""
+    set2DMatrix(X, Y, potential, psiMod, t=t + dt / 2, extra_param=extra_param)
+
+    Nx = len(X)
+    Ny = len(Y)
+
+
+    Px2, Py2 = np.array([n*n for n in range(1, Nx+1*0 -2)])*np.pi**2 * hred**2/(2*M*(X[-1]-X[0])**2), np.array([n*n for n in range(1, Ny+1*0 -2)])*np.pi**2 * hred**2/(2*M*(Y[-1]-Y[0])**2)
+
+
+    psiEigen[:,:] = dstn(psi[1:-2,1:-2], type=1)
+
+    Px2m, Py2m = np.meshgrid(Px2, Py2, copy=False, indexing='ij')
+
+    # Pxm*Pym = grid with P^2 at each point
+    #psiEigen *= (1 - 1j*dt/(2*hred) * (Px2m+Py2m))
+    #psiEigen /= (1 + 1j*dt/(2*hred) * (Px2m+Py2m))
+    psiEigen *= np.exp(-1/2 * dt* 1j/hred * (Px2m+Py2m))
+
+    psi[1:-2, 1:-2] = idstn(psiEigen, type=1)
+
+    psi *= np.exp(- dt * 1j/hred * psiMod)
+
+    psiEigen[:, :] = dstn(psi[1:-2, 1:-2], type=1)
+    psiEigen *= np.exp(-1 / 2 * dt * 1j / hred * (Px2m + Py2m))
+    psi[1:-2, 1:-2] = idstn(psiEigen, type=1)
+
+    #we could do the other way. Sandwtich the kinetic with potential term instead of the other way around.
+    # less dstn bottleneck
+
+def crankNicolson2DSchrodingerStepClosedBoxSplitEigen(X, Y, t, dt, potential, psi, psiEigen, psiMod, extra_param=np.array([])):
+    """We solve the CrankNicolson step factorizing the operators and switching to momentum space for momentum oeprators"""
+    set2DMatrix(X, Y, potential, psiMod, t=t + dt / 2, extra_param=extra_param)
+
+    Nx = len(X)
+    Ny = len(Y)
+
+
+    Px2, Py2 = np.array([n*n for n in range(1, Nx+1*0 -2)])*np.pi**2 * hred**2/(2*M*(X[-1]-X[0])**2), np.array([n*n for n in range(1, Ny+1*0 -2)])*np.pi**2 * hred**2/(2*M*(Y[-1]-Y[0])**2)
+
+
+    psiEigen[:,:] = dstn(psi[1:-2,1:-2], type=1)
+
+    Px2m, Py2m = np.meshgrid(Px2, Py2, copy=False, indexing='ij')
+
+    # Pxm*Pym = grid with P^2 at each point
+    #psiEigen *= (1 - 1j*dt/(2*hred) * (Px2m+Py2m))
+    #psiEigen /= (1 + 1j*dt/(2*hred) * (Px2m+Py2m))
+    psiEigen *= np.exp(-1/2 * dt* 1j/hred * (Px2m+Py2m))
+
+    psi[1:-2, 1:-2] = idstn(psiEigen, type=1)
+
+    psi *= np.exp(- dt * 1j/hred * psiMod)
+
+    psiEigen[:, :] = dstn(psi[1:-2, 1:-2], type=1)
+    psiEigen *= np.exp(-1 / 2 * dt * 1j / hred * (Px2m + Py2m))
+    psi[1:-2, 1:-2] = idstn(psiEigen, type=1)
+
+    #we could do the other way. Sandwitch the kinetic with potential term instead of the other way around.
+    # less dstn bottleneck
+
+
+def crankNicolson2DRadialSChrodingerClosed(R, t, dt, potential, psi):
+    """Solves radially symmetric 2D schrodinger equation, equivalent to solving a 1D equation
+     i hred d/dt R = -hred^2 / 2m [ r d^2/dr^2 + d/dr] F + r V(r) F
+     Where psi(r) = 1/2π R/r
+     with R(0) = 0
+     and ∫∫ psi(r) = ∫R(r) dr = 1
+     We consider a closed system, therefore we take boundary condition R(Rmax) = 0"""
+    pass
 
 @jit
 def potential0(x, y, t=0., extra_param=np.array([])):
     return 0.
 
+@jit
+def potential0_1D(x, t=0., extra_param=np.array([])):
+    return 0.
+
 
 def func1(x, y, t=0., extra_param=np.array([])):
     return 1#1/2. + np.sign(x) + np.sign(y)
+
+def funcRandom(x, y, t=0., extra_param=np.array([])):
+    return 0.5-np.random.random()
 
 @jit
 def potentialBarrier(x, y, t, extra_param):
@@ -1159,6 +1213,26 @@ def potentialBarrierYCustom(x, y, t, extra_param):
 @jit
 def potentialGravity(x, y, t, extra_param):
     return y*1
+
+
+def func1d(func, var='x', val=None):
+    """
+    Useful to split 2d function into 1d components without evaluating
+
+    :param func: 2d function (x,y,t,param) to be converted
+    :param var:
+    :param val:
+    :return:
+    """
+    if var == 'x':
+        @njit
+        def f1d(x, t, extra_param):
+            return func(x, 0.,  t, extra_param)
+    else:
+        @njit
+        def f1d(y, t, extra_param):
+            return func(0., y, t, extra_param)
+    return f1d
 
 @jit
 def potentialClosing(x, y, t, extra_param):
@@ -1237,6 +1311,11 @@ def gaussianPacket(x, sigma, p0, extra_param=np.array([])):
 
 
 # GENERATOR FOR GAUSSIAN INITIAL STATES
+def gaussian1D(x0, sigmax, px):
+    def result(x, t=0., extra_param=np.array([])):
+        return gaussianPacket(x- x0, sigmax, px)
+    return result
+
 def gaussian2D(x0, sigmax, px, y0, sigmay, py):
     def result(x, y, t=0., extra_param=np.array([])):
         return gaussianPacket(x- x0, sigmax, px) * gaussianPacket(y- y0, sigmay, py)
@@ -1253,7 +1332,7 @@ def inicial2D(x, y, t=0., extra_param=np.array([])):
     return inicial(x, p_0)*inicial(y, 0.5*p_0)
 
 
-def eigenvectorsHarmonic1D(x, n, k):
+def eigenvectorHarmonic1D(x, n=0, k=1):
     #not normalized
     x = x * np.sqrt(np.sqrt(M*k)/hred)
     return np.power(M*k, 1/8.)/np.sqrt(2**n * np.math.factorial(n) * np.sqrt(hred*np.pi)) * np.exp(-(x)**2/2.)*\
@@ -1263,7 +1342,7 @@ def eigenvectorsHarmonic1D(x, n, k):
 # GENERATOR FOR HARMONIC OSCILLATOR EIGENVECTORS
 def eigenvectorHarmonic2DGenerator(x0, nx, y0, ny, k):
     def result(x, y, t=0., extra_param=np.array([])):
-        return eigenvectorsHarmonic1D(x-x0, nx, k)*eigenvectorsHarmonic1D(y-y0, ny, k)
+        return eigenvectorHarmonic1D(x-x0, nx, k)*eigenvectorHarmonic1D(y-y0, ny, k)
     return result
 
 
@@ -1272,6 +1351,23 @@ def eigenvectorHarmonic2DGenerator(x0, nx, y0, ny, k):
 def innerProduct2D(a, b, dx, dy):
     # returns <a|b>,   orthogonal basis, norm dx * dy
     return np.conj(a).ravel().dot(b.ravel()) * dx * dy
+
+def interpolate1D(psiNew, x0, xf, psiOld, x0Old, xfOld):
+    """
+    Interpolate old system into new system. Linear interpolation.
+    """
+    # i: x0 + i dx  -> iInterp = (x-x0Old)/(xfOld-x0Old)
+    dx = (xf - x0) / (len(psiNew   ) - 1)
+    dxOld = (xfOld - x0Old) / (len(psiOld   ) - 1)
+    for i in range(len(psiNew)):
+        iInterp = (x0 + i*dx - x0Old)/dxOld
+        if iInterp < 0 or len(psiOld)-1 <= iInterp:
+            psiNew[i] = 0.
+        else:
+            iI = int(iInterp)
+            hi = iInterp - iI
+            psiNew[i] = (1-hi)*psiOld[iI ] + hi * psiOld[iI + 1]
+
 
 def interpolate2D(psiNew, x0, xf, y0, yf, psiOld, x0Old, xfOld, y0Old, yfOld):
     """
@@ -1305,14 +1401,176 @@ def interpolate2D(psiNew, x0, xf, y0, yf, psiOld, x0Old, xfOld, y0Old, yfOld):
                 interpX1 = (1-hi)*psiOld[iI, jI + 1] + hi * psiOld[iI + 1, jI + 1] # Corresponds to upper o
                 psiNew[i,j] = (1-hj) * interpX0 + hj * interpX1
 
+@jit(nopython=True)
+def crankNicolson1D(X, t, dt, potential, psi, psiTemp, extra_param=np.array([])):
+    """ Solves System:  i h_red d/dt psi = [-h_red^2 /2 (d^2/dx^2 + d^2/dy^2)  + V ] psi
+    Step 0: Psi(t)  ->   Step 1: psiTemp = Psi(t+dt/2) ->  Step 2: psi = Psi(t+dt)"""
+
+    global hred, M
+
+    # To make the code even faster, all of these temporary arrays could be created already. So no step needs to be taken
+    # Declare all necessary arrays. Trying to minimize need to allocate memory
+    tempBX = np.empty(len(psi) - 2, dtype=np.complex128)
+
+    tridX = np.empty((3, len(psi) - 2), dtype=np.complex128)
+
+    # Gamma is used for tridiag, it is allocated here to avoid repeated unnecessary memory allocation
+    gamma = np.empty((len(psi)-1,), dtype=np.complex128)
+
+    # Parameters for calcualtions
+    dx = (X[-1] - X[0]) / (len(X) - 1)
+    rx = 1j * dt * hred / (2 * M * dx ** 2)
+    cent_rx = 2 * (1 + rx)
+
+    # We set tridiagonal matrices. The main diagonal depends on the potential, which depends on position, so it's done later
+    tridX[0, :] = -rx
+    # tridX[1,:] = 2*(1+rx) + 1j * dt * V(x,y)
+    tridX[2, :] = -rx
+
+    tridX[1, :] = cent_rx + 1j  * dt / hred * potential(X[1:-1], t, extra_param)
+    tempBX[:] = (psi[:-2] + psi[2:]) * rx \
+                      + (2 * (1 - rx) - 1j  * dt / hred * potential(X[1:-1], t, extra_param)) * psi[1:-1]
+
+    tridiag(gamma, tridX, tempBX, psiTemp[1:-1])
+    psiTemp[0] = psi[0]
+    psiTemp[len(psi) - 1] = psi[len(psi) - 1]
+
+    psi[:] = psiTemp[:]
+
+
+def splitEigen1D(X, t, dt, potential, psi, psiEigen, extra_param=np.array([])):
+    """We solve the CrankNicolson step factorizing the operators and switching to momentum space for momentum oeprators"""
+    psiMod = X.copy() #psiMod = potential(X, t+dt/2, extra_param=extra_param)  # won't work if for instance func has ifs
+    set1DArray(X, potential, psiMod, t+dt/2, extra_param=extra_param)
+    Nx = len(X)
+    """for itx in range(1, len(psi)-1):
+        for ity in range(1, len(psi[0])-1):
+            psiTemp[itx, ity] = psi[itx, ity] * (1-)"""
+    psi *= np.exp(-dt* 1j/(2*hred) * (psiMod)) #(1 - 1j*dt/(2*hred) * psiMod)
+
+    Px2 = np.array([n*n for n in range(1, Nx+1*0 -2)])*np.pi**2 * hred**2/(2*M*(X[-1]-X[0])**2)
+
+    psiEigen[:] = dstn(psi[1:-2], type=1)
+
+    psiEigen *= np.exp(-dt* 1j/hred * (Px2))
+
+    psi[1:-2] = idstn(psiEigen, type=1)
+
+    psi /= np.exp(+dt* 1j/(2*hred) * (psiMod))#(1 + 1j*dt/(2*hred) * psiMod)
+
+class QuantumSystem1D:
+    def __init__(self, N=200, x0=-10., xf=10.,
+                 initState=gaussian1D(5, 1, -1), t=0., potential=potential0_1D, extra_param=np.array([1.]),
+                 x0Old=-10., xfOld = 10., mass=M, step='fastest', renormStep=False, customOperator=None):
+
+        global M
+        M = mass
+        self.mass = mass
+        self.N = N
+        self.x0, self.xf = x0, xf
+        self.dx = (xf - x0) / N
+        self.X = np.linspace(x0, xf, N + 1, dtype=np.float64)
+        self.Px = 2 * hred * np.pi * np.sort(np.fft.fftfreq(N + 1, self.dx))
+        self.t = t
+        self.extra_param = extra_param.view()
+
+        self.step = step
+        self.renormStep = renormStep
+        self.customOperator = customOperator
+
+        self.psi = np.empty((N + 1,), dtype=np.complex128)  # Will hold psi
+        self.psiMod = np.empty((N + 1,), dtype=np.float64)  # Will hold |psi|^2
+        self.psiCopy = np.copy(self.psi)  # Will hold necessary intermediate step matrices
+        self.psiMom = np.copy(self.psi)  # One extra for momentum, not really necessary. But useful for uncertainty
+        self.psiEigen = np.zeros((N - 2,), dtype=np.complex128)
+
+        if callable(initState):
+            self.psi[:] = initState(self.X, t=self.t, extra_param=self.extra_param)
+
+        else:
+            if initState.shape == self.psi.shape and x0 == x0Old and xf == xfOld:
+                self.psi[:, :] = initState[:, :]
+            else:
+                interpolate1D(self.psi, self.x0, self.xf, initState, x0Old, xfOld)
+        self.psi[0] = 0.
+        self.psi[N] = 0.
+
+        self.renorm()
+
+        self.potential = potential
+        self.op = np.array([[1., 0.], [0., 0.], [0., 0.]])
+
+        self.totalEnergyOp = totalEnergyOpGenerator(self.potential, 1. / self.dx ** 2)
+
+        self.eigenstates = []
+
+        self.momentumSpace()
+
+    def renorm(self):
+        #self.psi[:,:] = self.psi[:,:] / np.sqrt(self.norm())
+        #np.multiply(self.psi, 1./np.sqrt(self.norm()),out=self.psi)
+        self.psi *= 1./np.sqrt(self.norm())
+
+    def momentumSpace(self):
+        self.psiMom[:] = np.fft.fft(self.psi[:]) * ((self.dx) / np.sqrt(2 * np.pi))
+        self.psiMom[:] = np.fft.fftshift(self.psiMom[:])
+        if hred != 1: self.psiMom *= 1./hred
+
+    def norm(self):
+        return np.sum(np.real(np.conj(self.psi)*self.psi))*self.dx
+
+    def kineticEnergy(self):
+        return -hred**2 / (2*self.mass) * np.sum(np.real(np.conj(self.psi[1:-1])*(self.psi[2:]-2*self.psi[1:-1]+self.psi[:-2]))/(self.dx))
+
+    def potentialEnergy(self):
+        potX = self.X.copy()
+        set1DArray(self.X, self.potential, potX, self.t, extra_param=self.extra_param)
+        return np.sum(abs2(self.psi)*potX)*self.dx
+
+    def totalEnergy(self):
+        return self.kineticEnergy() + self.potentialEnergy()
+    def evolveStep(self, dt):
+        # use thomas algorithm, tridiag Crank Nicolson.
+        # else use exponentials for dt^3 method, but no explicit conservation of energy
+        #crankNicolson1D(self.X, self.t, dt, self.potential, self.psi, self.psiCopy, extra_param=self.extra_param)
+        splitEigen1D(self.X, self.t, dt, self.potential, self.psi, self.psiEigen, extra_param=self.extra_param)
+        self.t += dt
+
+    def evolveImagStep(self, dt):
+        splitEigen1D(self.X, self.t, dt, self.potential, self.psi, self.psiEigen, extra_param=self.extra_param)
 
 # https://numba.pydata.org/numba-doc/latest/user/jitclass.html
 class QuantumSystem2D:
     # there are Nx+1 points x0, x1, ..., XNx
     def __init__(self, Nx=200, Ny=200, x0=-10., y0=-10., xf=+10., yf=+10.,
                  initState = gaussian00, t = 0., potential = potential0, extra_param=np.array([1.]),
-                 x0Old = -10., xfOld=10., y0Old=-10., yfOld=10., mass=M, step='fastest', renormStep=False, customOperator=None):
+                 x0Old = -10., xfOld=10., y0Old=-10., yfOld=10., mass=M, step='fastest', renormStep=False, customOperator=None,
+                 dim = 2, separable = False, pot_x=potential0_1D, pot_y=potential0_1D, init_x=gaussian1D(0, 1, 0), init_y=gaussian1D(0, 1, 0)):
+        """
+        :param Nx:
+        :param Ny:
+        :param x0:
+        :param y0:
+        :param xf:
+        :param yf:
+        :param initState:
+        :param t:
+        :param potential:
+        :param extra_param:
+        :param x0Old:
+        :param xfOld:
+        :param y0Old:
+        :param yfOld:
+        :param mass:
+        :param step:
+        :param renormStep:
+        :param customOperator:
+        :param dim:
+        :param split: T evaluate the Quantum System as 2 independent 1D systems. Possible when initial conditions and hamiltonian is separable
+        """
                       # These are used for interpolating
+        #self.dim = dim #try to reuse code to make 1d case too...
+        self.separable = separable
         global M
         M = mass
         self.mass = mass
@@ -1339,21 +1597,28 @@ class QuantumSystem2D:
         self.Pxmesh, self.Pymesh = np.meshgrid(self.Px, self.Py, copy=False, indexing='ij')
 
         self.psiEigen = np.zeros((Nx-2,Ny-2), dtype=np.complex128)
-        self.Kx, self.Ky = np.array([n*n for n in range(1, Nx)])*np.pi**2 * hred**2/(2*M*(xf-x0)**2), np.array([n*n for n in range(1, Ny)])*np.pi**2 * hred**2/(2*M*(yf-y0)**2)
+        self.Kx, self.Ky = np.array([n*n for n in range(1, Nx-1)])*np.pi**2 * hred**2/(2*M*(xf-x0)**2), np.array([n*n for n in range(1, Ny-1)])*np.pi**2 * hred**2/(2*M*(yf-y0)**2)
                       # Kinetic energy Eigenvalues for closed box. "only for interior points"
         self.Kxmesh, self.Kymesh = np.meshgrid(self.Kx, self.Ky, copy=False, indexing='ij')
 
-        if callable(initState):
-            self.psi[:,:] = initState(self.Xmesh, self.Ymesh, t = self.t, extra_param=self.extra_param)
-            #set2DMatrix(self.X, self.Y, initState, self.psi, t=t)
-            # Potentially faster, but needs jit, not as flexible,
-            # and regardless it's a one time thing
+        if separable:
+            self.QX = QuantumSystem1D(Nx, x0, xf, init_x, t, func1d(potential, 'x') if pot_x is None else pot_x , extra_param, renormStep=renormStep)
+            self.QY = QuantumSystem1D(Ny, y0, yf, init_y, t, func1d(potential, 'y') if pot_y is None else pot_y, extra_param, renormStep=renormStep)
+            np.einsum('i,j', self.QX.psi, self.QY.psi, out=self.psi)
+
         else:
-            if initState.shape == self.psi.shape and x0==x0Old and y0==y0Old and xf==xfOld and yf==yfOld:
-                self.psi[:,:] = initState[:,:]
+            if callable(initState):
+                self.psi[:,:] = initState(self.Xmesh, self.Ymesh, t = self.t, extra_param=self.extra_param)
+                #set2DMatrix(self.X, self.Y, initState, self.psi, t=t)
+                # Potentially faster, but needs jit, not as flexible,
+                # and regardless it's a one time thing
             else:
-                interpolate2D(self.psi, self.x0, self.xf, self.y0, self.yf,
-                              initState, x0Old, xfOld, y0Old, yfOld)
+                if initState.shape == self.psi.shape and x0==x0Old and y0==y0Old and xf==xfOld and yf==yfOld:
+                    self.psi[:,:] = initState[:,:]
+
+                else:
+                    interpolate2D(self.psi, self.x0, self.xf, self.y0, self.yf,
+                                  initState, x0Old, xfOld, y0Old, yfOld)
         self.psi[:,0] = 0.
         self.psi[:,Ny] = 0.
         self.psi[0,:] = 0.
@@ -1378,21 +1643,30 @@ class QuantumSystem2D:
         self.eigenstates.clear()
 
     def evolveStep(self, dt):
-        #crankNicolson2DSchrodingerStepLegacy(self.X, self.Y, self.t, dt, self.potential,
-        #                                     self.psi, self.psiCopy, extra_param=self.extra_param)
-        if self.step == 'eigen':
-            crankNicolson2DSchrodingerStepClosedBoxEigen(self.X, self.Y, self.t, dt, self.potential,
-                                                         self.psi, self.psiEigen, self.psiMod, extra_param=self.extra_param)
-        elif self.step == 'exact':
-            crankNicolson2DSchrodingerStepExact(self.X, self.Y, self.t, dt, self.potential,
-                                                self.psi, self.psiCopy, self.psiMod, extra_param=self.extra_param)
+        if self.separable:
+            self.QX.evolveStep(dt)
+            self.QY.evolveStep(dt)
+            np.einsum('i,j', self.QX.psi, self.QY.psi, out=self.psi)
         else:
-            if self.customOperator is None:
-                crankNicolson2DSchrodingerStepFastest(self.X, self.Y, self.t, dt, self.potential,
-                                                             self.psi, self.psiCopy, self.psiMod, extra_param=self.extra_param)
+            #crankNicolson2DSchrodingerStepLegacy(self.X, self.Y, self.t, dt, self.potential,
+            #                                     self.psi, self.psiCopy, extra_param=self.extra_param)
+            if self.step == 'eigen':
+                crankNicolson2DSchrodingerStepClosedBoxEigen(self.X, self.Y, self.t, dt, self.potential,
+                                                             self.psi, self.psiEigen, self.psiMod, extra_param=self.extra_param)
+            elif self.step == 'spliteigen':
+                crankNicolson2DSchrodingerStepClosedBoxSplitEigen(self.X, self.Y, self.t, dt, self.potential,
+                                                             self.psi, self.psiEigen, self.psiMod, extra_param=self.extra_param)
+            elif self.step == 'exact':
+                crankNicolson2DSchrodingerStepExact(self.X, self.Y, self.t, dt, self.potential,
+                                                    self.psi, self.psiCopy, self.psiMod, extra_param=self.extra_param)
             else:
-                crankNicolson2DHalfStepSchrodinger(self.X, self.Y, self.t, dt, self.potential, self.customOperator,
-                                        self.psi, self.psiCopy, self.psiMod, extra_param=self.extra_param)
+                if self.customOperator is None:
+                    crankNicolson2DSchrodingerStepFastest(self.X, self.Y, self.t, dt, self.potential,
+                                                                 self.psi, self.psiCopy, self.psiMod, extra_param=self.extra_param)
+                else:
+                    crankNicolson2DHalfStepSchrodinger(self.X, self.Y, self.t, dt, self.potential, self.customOperator,
+                                            self.psi, self.psiCopy, self.psiMod, extra_param=self.extra_param)
+
         self.t += dt
         if self.renormStep: self.psi /= np.sqrt(self.norm())
 
@@ -1430,29 +1704,36 @@ class QuantumSystem2D:
         self.psi *= 1./np.sqrt(self.norm())
 
     def kineticEnergy(self):
-        #kineticEnergy(self.op, (self.x0, self.y0), (self.dx, self.dy), onlyUpdate=False)
-        #return expectedValueOperator2D(self.X, self.Y, self.psi, self.psiCopy, self.op)
-        if self.step == 'eigen':
-            return self.dx*self.dy/(4*self.Nx*self.Ny) * np.sum(abs2(dstn(self.psi[1:-1,1:-1], type=1))*(self.Kxmesh + self.Kymesh))
+        if self.separable:
+            return self.QX.kineticEnergy() + self.QY.kineticEnergy()
+        else:
+            #kineticEnergy(self.op, (self.x0, self.y0), (self.dx, self.dy), onlyUpdate=False)
+            #return expectedValueOperator2D(self.X, self.Y, self.psi, self.psiCopy, self.op)
+            if self.step == 'eigen' or self.step == 'spliteigen':
+                return self.dx*self.dy/(4*self.Nx*self.Ny) * np.sum(abs2(dstn(self.psi[1:-2,1:-2], type=1))*(self.Kxmesh + self.Kymesh))
 
-        if self.step == 'fourier':
-            return self.expectedValueOpCentralMomentum(kineticEnergyMomentum)
+            if self.step == 'fourier':
+                return self.expectedValueOpCentralMomentum(kineticEnergyMomentum)
 
-        return self.expectedValueOp(kineticEnergy)#expectedValueOperator2D(self.X, self.Y, self.psi, self.psiCopy, kineticEnergy) # time and extra_param are irrelevant
+            return self.expectedValueOp(kineticEnergy)#expectedValueOperator2D(self.X, self.Y, self.psi, self.psiCopy, kineticEnergy) # time and extra_param are irrelevant
 
     def potentialEnergy(self):
-        # Possible bottleneck
-        return abs2MatrixMultipliedExpected(self.X, self.Y, self.potential, self.psi,
-                                            t=self.t, extra_param=self.extra_param)
+        if self.separable:
+            return self.QX.potentialEnergy() + self.QY.potentialEnergy()
 
-        ####abs2MatrixMultiplied(self.X, self.Y, self.potential, self.psi, self.psiMod,
-        ####                     t=self.t, extra_param=self.extra_param)
+        else:
+            # Possible bottleneck
+            return abs2MatrixMultipliedExpected(self.X, self.Y, self.potential, self.psi,
+                                                t=self.t, extra_param=self.extra_param)
 
-        #self.psiMod[:,:] = abs2(self.psi[:,:]) * self.potential(self.Xmesh[:,:], self.Ymesh[:,:], self.t)
-        # Can't include IFs this first way apparently
-        # Must be same summation type as norm
-        ####return np.trapz(np.trapz(self.psiMod))*self.dx*self.dy
-        #return simpson_complex_list2D(self.dx, self.dy, self.psiMod)
+            ####abs2MatrixMultiplied(self.X, self.Y, self.potential, self.psi, self.psiMod,
+            ####                     t=self.t, extra_param=self.extra_param)
+
+            #self.psiMod[:,:] = abs2(self.psi[:,:]) * self.potential(self.Xmesh[:,:], self.Ymesh[:,:], self.t)
+            # Can't include IFs this first way apparently
+            # Must be same summation type as norm
+            ####return np.trapz(np.trapz(self.psiMod))*self.dx*self.dy
+            #return simpson_complex_list2D(self.dx, self.dy, self.psiMod)
 
     def totalEnergy(self):
         return self.kineticEnergy() + self.potentialEnergy()
@@ -1468,17 +1749,22 @@ class QuantumSystem2D:
         """
         #print(len(self.eigenstates))
         if resetInit:
-            if initState is not None:
+            if not(initState is None):
                 self.setState(initState)
             else:
-                self.setState(func1)    # PROBLEM WITH THIS. SYMMETRIC INITIAL STATE. HARD TO FIND ANTISYMMETRIC STATES
+                #self.setState(func1)    # PROBLEM WITH THIS. SYMMETRIC INITIAL STATE. HARD TO FIND ANTISYMMETRIC STATES
+                self.setState(funcRandom)
+                self.renorm()
+
+        for E, eigenstate in self.eigenstates:
+            self.substractComponent(eigenstate)
 
         for it in range(maxiter):
-            for E, eigenstate in self.eigenstates:
-                self.substractComponent(eigenstate)
             for __ in range(10):
                 self.evolveImagStep(-2**(-6))
             #self.renorm() # redundant, we put renormalization in evolveImagStep
+            for E, eigenstate in self.eigenstates:
+                self.substractComponent(eigenstate)
 
             isEigen, E = self.isEigenstate(tol=tol)
             if isEigen:
@@ -1640,6 +1926,19 @@ class QuantumSystem2D:
         #np.subtract(self.psi,c*component, out=self.psi)   # what even is faster?
 
         return True
+
+    def potentialMatrix(self, potentialMat):
+        if self.separable:
+            potX = self.X.copy()
+            potY = self.Y.copy()
+            set1DArray(self.X, self.QX.potential, potX, self.t, extra_param=self.extra_param)
+            set1DArray(self.Y, self.QY.potential, potY, self.t, extra_param=self.extra_param)
+            potXm, potYm = np.meshgrid(potX, potY, copy=False, indexing='ij')
+            potentialMat[:,:] = potXm+potYm
+
+        else:
+            set2DMatrix(self.X, self.Y, self.potential, potentialMat,
+                        t=self.t, extra_param=self.extra_param)
 
 
 class ClassicalParticle:
@@ -1812,3 +2111,84 @@ parameters = np.array([2, 1, 1, 0.5]) # [n, width, dist, GruixWall]
 def slitpotential(x, y, t, extra_param=np.array([])):
     return 400. if (abs(x) < parameters[3] / 2 and not slit(abs(y), parameters[0], parameters[1], parameters[2])) \
         else 0.
+
+
+if __name__ == "__main__":
+    from functools import partial
+    def f1(x, t, extra_param=np.array([])):
+        return 2*np.abs(x)
+    def f2(x, t, extra_param=np.array([])):
+        return 2*np.abs(x) + 0*1/2 * x**2/(np.exp(-np.abs(x)/10)) + 1*x*np.sin(1*t) #return 1/2 * x**2
+
+    qsys = QuantumSystem1D(initState=gaussian1D(0, 1/np.sqrt(2), 0), potential=njit(f1))
+    import matplotlib.pyplot as plt
+    from matplotlib.animation import FuncAnimation
+    from time import time
+    #plt.plot(qsys.X, abs(qsys.psi)**2)
+    #plt.show()
+    fig = plt.figure()
+    ax = plt.gca()
+    eigen = []
+
+    t0 = time()
+    for j in range(1, 4000):
+        # plt.cla()
+        qsys.evolveImagStep(-0.05 * 1j)
+        for eig in eigen:
+            qsys.psi -= innerProduct2D(eig, qsys.psi, qsys.dx, 1) * eig
+            # qsys.psi *= 0
+        qsys.renorm()
+
+        if j % 100 == 0:
+            # print(3)
+            eigen.append(qsys.psi.copy())
+
+    print(time()-t0,' s')
+
+    qsys.potential = njit(f2)
+    from animate import plotComplex, plotComplexData
+
+    qsys.psi = eigen[0] #+ eigen[2]
+    qsys.renorm()
+
+    ax.set_ylim(0,1)
+    datpsi = plotComplex(qsys.psi, ax, 'phase', qsys.X)
+    print(datpsi)
+
+
+    def animate(i):
+        #plt.cla()
+        qsys.evolveStep(0.05)
+        """for eig in eigen:
+            qsys.psi -= innerProduct2D(eig, qsys.psi, qsys.dx, 1)*eig
+            #qsys.psi *= 0
+        qsys.renorm()
+
+        if j%50 == 0:
+            #print(3)
+            eigen.append(qsys.psi.copy())
+            j = 0"""
+        #plt.plot(qsys.X, abs(qsys.psi)**2)
+        datpsi[0].set_data(plotComplexData(qsys.psi, 'phase', 'phase'))#plotComplex(qsys.psi, plt.gca(), 'phase', qsys.X))
+        #ax.draw_artist(datpsi[0])
+        data = plotComplexData(qsys.psi)
+        ymax = ax.get_ylim()[1]
+        p = datpsi[1]
+        v_x = np.hstack([qsys.X[0], qsys.X, qsys.X[-1], qsys.X[-1], qsys.X[0], qsys.X[0]])
+        v_y = np.hstack([data[0], data, data[-1], ymax, ymax, ymax])
+        vertices = np.vstack([v_x, v_y]).T
+        codes = np.array([1] + (1 * len(qsys.X) + 3) * [2] + [79]).astype('uint8')
+
+        path = p.get_paths()[0]
+        path.vertices = vertices
+        path.codes = codes
+        #ax.fill_between(range, data, ymax, color='w')
+
+
+
+        datpsi[2][0].set_data(qsys.X, data) #ax.plot(range, data, 'k')
+        print("K: {:10f} V: {:10f} E: {:10f}\nNorm: {:10f}".format(qsys.kineticEnergy(), qsys.potentialEnergy(), qsys.totalEnergy(), qsys.norm()))
+
+
+    ani = FuncAnimation(fig, animate, interval=5)
+    plt.show()

@@ -1,0 +1,10 @@
+This text contains all the explanaitions for the examples given.
+
+
+First of all a general explanation that corresponds to the tutorial:
+
+In this program you will play around with a quantum simulation of a 2D schrodigner equation. You have two options:
+Simulations corresponding to a single particle in 2D (x, y) or simulations corresponding to two different particles constrained in 1D,
+where "the first one" is identified by x and the second one by y
+
+
